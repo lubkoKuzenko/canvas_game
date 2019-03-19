@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://unpkg.com/konva@3.2.1/konva.min.js"></script>
+    <meta charset="utf-8" />
+    <title>Konva Animals on the Beach Game Demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #f0f0f0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script>
+      var width = window.innerWidth;
+      var height = window.innerHeight;
+
+      function loadImages(sources, callback) {
+        var assetDir = './assets/';
+        var images = {};
+        var loadedImages = 0;
+        var numImages = 0;
+        for (var src in sources) {
+          numImages++;
+        }
+        for (var src in sources) {
+          images[src] = new Image();
+          images[src].onload = function() {
+            if (++loadedImages >= numImages) {
+              callback(images);
+            }
+          };
+          images[src].src = assetDir + sources[src];
+        }
+      }
+      function isNearOutline(animal, outline) {
+        var a = animal;
+        var o = outline;
+        var ax = a.x();
+        var ay = a.y();
+
+        if (ax > o.x - 20 && ax < o.x + 20 && ay > o.y - 20 && ay < o.y + 20) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+      function drawBackground(background, beachImg, text) {
+        var context = background.getContext();
+        context.drawImage(beachImg, 0, 0);
+        context.setAttr('font', '20pt Calibri');
+        context.setAttr('textAlign', 'center');
+        context.setAttr('fillStyle', 'white');
+        context.fillText(text, background.getStage().width() / 2, 40);
+      }
+
+      function random(min, max){
+        return Math.floor(Math.random() * (+max - +min)) + +min; 
+      }
+
+      function initStage(images) {
+        var stage = new Konva.Stage({
+          container: 'container',
+          width: 1920,
+          height: 1080
+        });
+
+        var background = new Konva.Layer();
+        var car = new Konva.Layer();
+        var animalLayer = new Konva.Layer();
+        var containerLayer = new Konva.Layer();
+        var animalShapes = [];
+        var score = 0;
+
+        // image positions
+        var letters = {
+          c: {
+            x: random(500, 1200),
+            y: random(700, 720)
+          },
+          a: {
+            x: random(500, 1200),
+            y: random(700, 720)
+          },
+          r: {
+            x: random(500, 1200),
+            y: random(700, 720)
+          }
+        };
+
+        var outlines = {
+          car: {
+            x: 590,
+            y: 50
+          }
+        };
+
+        var containers = {
+          main: {
+            x: 500,
+            y: 700,
+            width: 800,
+            height: 100
+          },
+          c: {
+            x: 650,
+            y: 400,
+            width: 70,
+            height: 70
+          },
+          a: {
+            x: 850,
+            y: 400,
+            width: 70,
+            height: 70
+          },
+          r: {
+            x: 1050,
+            y: 400,
+            width: 70,
+            height: 70
+          }
+        }
+
+        // create draggable animals
+        for (var key in letters) {
+          // anonymous function to induce scope
+          (function() {
+            var privKey = key;
+            var anim = letters[key];
+
+            var animal = new Konva.Image({
+              image: images[key],
+              width: 70,
+              height: 70,
+              x: anim.x,
+              y: anim.y,
+              draggable: true
+            });
+
+            animal.on('dragstart', function() {
+              this.moveToTop();
+              animalLayer.draw();
+            });
+            /*
+             * check if animal is in the right spot and
+             * snap into place if it is
+             */
+            animal.on('dragend', function() {
+              var container = containers[privKey];
+              if (!animal.inRightPlace && isNearOutline(animal, container)) {
+                animal.position({
+                  x: container.x,
+                  y: container.y
+                });
+                animalLayer.draw();
+                animal.inRightPlace = true;
+
+                if (++score >= 3) {
+                  var text = 'You win! Enjoy your booty!';
+                  drawBackground(background, images.beach, text);
+                }
+
+                // disable drag and drop
+                setTimeout(function() {
+                  animal.draggable(false);
+                }, 50);
+              }
+            });
+            
+            // return animal on mouseout
+            animal.on('mouseout', function() {
+              animal.image(images[privKey]);
+              animalLayer.draw();
+              document.body.style.cursor = 'default';
+            });
+
+            animal.on('dragmove', function() {
+              document.body.style.cursor = 'pointer';
+            });
+
+            animalLayer.add(animal);
+            animalShapes.push(animal);
+          })();
+        }
+
+        // create animal outlines
+        for (var key in outlines) {
+          // anonymous function to induce scope
+          (function() {
+            var imageObj = images[key];
+            var out = outlines[key];
+
+            var outline = new Konva.Image({
+              image: imageObj,
+              x: out.x,
+              y: out.y
+            });
+
+            animalLayer.add(outline);
+          })();
+        }
+
+        // create letters outlines
+        for (var key in containers) {
+          // anonymous function to induce scope
+          (function() {
+            var out = containers[key];
+
+            var rect = new Konva.Rect({
+              x: out.x,
+              y: out.y,
+              width: out.width,
+              height: out.height,
+              fill: 'white',
+              stroke: 'black',
+              strokeWidth: 4
+            });
+
+            containerLayer.add(rect);
+            rect.zIndex(1)
+          })();
+        }
+
+        stage.add(background);
+        stage.add(containerLayer);
+        stage.add(car);
+        stage.add(animalLayer);
+
+        drawBackground(
+          background,
+          images.beach,
+          'Put correct letter to create word that describe image.'
+        );
+      }
+
+      var sources = {
+        beach: 'download.jpeg',
+        car: 'car.png',
+        c: 'c.png',
+        a: 'a.png',
+        r: 'r.png'
+      };
+      loadImages(sources, initStage);
+    </script>
+  </body>
+</html>
